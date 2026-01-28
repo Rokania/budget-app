@@ -82,7 +82,17 @@ jobs:
         run: |
           echo "$SPARKLE_PRIVATE_KEY" | base64 -d > /tmp/sparkle_private_key
 
-          SIGNATURE=$(/tmp/bin/sign_update "export/${{ env.APP_NAME }}-${{ steps.version.outputs.version }}.zip" --ed-key-file /tmp/sparkle_private_key | grep "sparkle:edSignature" | sed 's/.*"\(.*\)".*/\1/')
+          # Get signature from sign_update output
+          SIGN_OUTPUT=$(/tmp/bin/sign_update "export/${{ env.APP_NAME }}-${{ steps.version.outputs.version }}.zip" --ed-key-file /tmp/sparkle_private_key)
+          echo "Sign output: $SIGN_OUTPUT"
+
+          # Extract just the signature value (after the = sign)
+          SIGNATURE=$(echo "$SIGN_OUTPUT" | grep -o 'edSignature="[^"]*"' | cut -d'"' -f2)
+          if [ -z "$SIGNATURE" ]; then
+            # Try alternative format
+            SIGNATURE=$(echo "$SIGN_OUTPUT" | tail -1)
+          fi
+          echo "Extracted signature: $SIGNATURE"
           echo "signature=$SIGNATURE" >> $GITHUB_OUTPUT
 
           SIZE=$(stat -f%z "export/${{ env.APP_NAME }}-${{ steps.version.outputs.version }}.zip")
