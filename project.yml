@@ -37,7 +37,7 @@ targets:
     entitlements:
       path: Budget/Budget.entitlements
       properties:
-        com.apple.security.app-sandbox: true
+        com.apple.security.app-sandbox: false
         com.apple.security.network.client: true
     scheme:
       testPlans: []
