@@ -1,0 +1,162 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+env:
+  APP_NAME: Budget
+  SCHEME: Budget
+  BUNDLE_ID: com.budget.app
+
+jobs:
+  build:
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '16.2'
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode Project
+        run: xcodegen generate
+
+      - name: Resolve Dependencies
+        run: xcodebuild -resolvePackageDependencies -project ${{ env.APP_NAME }}.xcodeproj
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building version $VERSION"
+
+      - name: Update version in Info.plist
+        run: |
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${{ steps.version.outputs.version }}" ${{ env.APP_NAME }}/Info.plist
+          # Increment build number based on run number
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ github.run_number }}" ${{ env.APP_NAME }}/Info.plist
+
+      - name: Build Release
+        run: |
+          xcodebuild -project ${{ env.APP_NAME }}.xcodeproj \
+            -scheme ${{ env.SCHEME }} \
+            -configuration Release \
+            -derivedDataPath build \
+            -archivePath build/${{ env.APP_NAME }}.xcarchive \
+            archive \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Export App
+        run: |
+          mkdir -p export
+          cp -R "build/${{ env.APP_NAME }}.xcarchive/Products/Applications/${{ env.APP_NAME }}.app" export/
+
+      - name: Create ZIP
+        run: |
+          cd export
+          zip -r -y "${{ env.APP_NAME }}-${{ steps.version.outputs.version }}.zip" "${{ env.APP_NAME }}.app"
+          ls -la
+
+      - name: Download Sparkle
+        run: |
+          curl -sL https://github.com/sparkle-project/Sparkle/releases/download/2.8.1/Sparkle-2.8.1.tar.xz -o /tmp/Sparkle.tar.xz
+          cd /tmp && tar -xf Sparkle.tar.xz
+
+      - name: Sign Update with EdDSA
+        id: sign
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          # Write private key to temp file
+          echo "$SPARKLE_PRIVATE_KEY" | base64 -d > /tmp/sparkle_private_key
+
+          # Sign the update
+          SIGNATURE=$(/tmp/bin/sign_update "export/${{ env.APP_NAME }}-${{ steps.version.outputs.version }}.zip" --ed-key-file /tmp/sparkle_private_key | grep "sparkle:edSignature" | sed 's/.*"\(.*\)".*/\1/')
+
+          echo "signature=$SIGNATURE" >> $GITHUB_OUTPUT
+
+          # Get file size
+          SIZE=$(stat -f%z "export/${{ env.APP_NAME }}-${{ steps.version.outputs.version }}.zip")
+          echo "size=$SIZE" >> $GITHUB_OUTPUT
+
+          # Cleanup
+          rm /tmp/sparkle_private_key
+
+      - name: Generate Appcast
+        run: |
+          mkdir -p gh-pages
+
+          # Download existing appcast if it exists
+          curl -sL "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/appcast.xml" -o gh-pages/appcast.xml 2>/dev/null || true
+
+          # Create or update appcast
+          cat > gh-pages/appcast.xml << 'APPCAST_EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+            <channel>
+              <title>${{ env.APP_NAME }}</title>
+              <link>https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/</link>
+              <description>Mises a jour de ${{ env.APP_NAME }}</description>
+              <language>fr</language>
+              <item>
+                <title>Version ${{ steps.version.outputs.version }}</title>
+                <pubDate>${{ github.event.head_commit.timestamp }}</pubDate>
+                <sparkle:version>${{ github.run_number }}</sparkle:version>
+                <sparkle:shortVersionString>${{ steps.version.outputs.version }}</sparkle:shortVersionString>
+                <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+                <description><![CDATA[
+                  <h2>Nouveautes de la version ${{ steps.version.outputs.version }}</h2>
+                  <p>Consultez les notes de version sur GitHub.</p>
+                ]]></description>
+                <enclosure
+                  url="https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.version }}/${{ env.APP_NAME }}-${{ steps.version.outputs.version }}.zip"
+                  sparkle:edSignature="${{ steps.sign.outputs.signature }}"
+                  length="${{ steps.sign.outputs.size }}"
+                  type="application/octet-stream"/>
+              </item>
+            </channel>
+          </rss>
+          APPCAST_EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: export/${{ env.APP_NAME }}-${{ steps.version.outputs.version }}.zip
+          generate_release_notes: true
+          draft: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload appcast artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: gh-pages
+
+  deploy-pages:
+    needs: build
+    runs-on: ubuntu-latest
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
