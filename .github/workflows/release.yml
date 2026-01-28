@@ -110,45 +110,50 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Deploy appcast to gh-pages
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          SIGNATURE: ${{ steps.sign.outputs.signature }}
+          SIZE: ${{ steps.sign.outputs.size }}
+          RUN_NUMBER: ${{ github.run_number }}
+          REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+          REPO_NAME: ${{ github.event.repository.name }}
         run: |
+          # Clone gh-pages branch in a separate directory
+          git clone --branch gh-pages --single-branch https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git gh-pages-dir
+          cd gh-pages-dir
+
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Create orphan gh-pages branch or fetch existing
-          git fetch origin gh-pages:gh-pages 2>/dev/null || git checkout --orphan gh-pages
-          git checkout gh-pages || git checkout --orphan gh-pages
-
-          # Clean and create appcast
-          git rm -rf . 2>/dev/null || true
-
           cat > appcast.xml << EOF
-          <?xml version="1.0" encoding="utf-8"?>
-          <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
-            <channel>
-              <title>${{ env.APP_NAME }}</title>
-              <link>https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/</link>
-              <description>Mises a jour de ${{ env.APP_NAME }}</description>
-              <language>fr</language>
-              <item>
-                <title>Version ${{ steps.version.outputs.version }}</title>
-                <pubDate>$(date -R)</pubDate>
-                <sparkle:version>${{ github.run_number }}</sparkle:version>
-                <sparkle:shortVersionString>${{ steps.version.outputs.version }}</sparkle:shortVersionString>
-                <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-                <description><![CDATA[
-                  <h2>Nouveautes de la version ${{ steps.version.outputs.version }}</h2>
-                  <p>Consultez les notes de version sur GitHub.</p>
-                ]]></description>
-                <enclosure
-                  url="https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.version }}/${{ env.APP_NAME }}-${{ steps.version.outputs.version }}.zip"
-                  sparkle:edSignature="${{ steps.sign.outputs.signature }}"
-                  length="${{ steps.sign.outputs.size }}"
-                  type="application/octet-stream"/>
-              </item>
-            </channel>
-          </rss>
-          EOF
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>Budget</title>
+    <link>https://${OWNER}.github.io/${REPO_NAME}/</link>
+    <description>Mises a jour de Budget</description>
+    <language>fr</language>
+    <item>
+      <title>Version ${VERSION}</title>
+      <pubDate>$(date -R)</pubDate>
+      <sparkle:version>${RUN_NUMBER}</sparkle:version>
+      <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        <h2>Nouveautes de la version ${VERSION}</h2>
+        <p>Consultez les notes de version sur GitHub.</p>
+      ]]></description>
+      <enclosure
+        url="https://github.com/${REPO}/releases/download/v${VERSION}/Budget-${VERSION}.zip"
+        sparkle:edSignature="${SIGNATURE}"
+        length="${SIZE}"
+        type="application/octet-stream"/>
+    </item>
+  </channel>
+</rss>
+EOF
 
           git add appcast.xml
-          git commit -m "Update appcast for v${{ steps.version.outputs.version }}"
+          git commit -m "Update appcast for v${VERSION}"
           git push origin gh-pages --force
