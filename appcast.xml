@@ -6,19 +6,19 @@
     <description>Mises a jour de Budget</description>
     <language>fr</language>
     <item>
-      <title>Version 1.0.0</title>
-      <pubDate>Wed, 28 Jan 2026 20:41:26 +0000</pubDate>
-      <sparkle:version>4</sparkle:version>
-      <sparkle:shortVersionString>1.0.0</sparkle:shortVersionString>
+      <title>Version 1.0.1</title>
+      <pubDate>Wed, 28 Jan 2026 20:57:03 +0000</pubDate>
+      <sparkle:version>8</sparkle:version>
+      <sparkle:shortVersionString>1.0.1</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
       <description><![CDATA[
-        <h2>Nouveautes de la version 1.0.0</h2>
+        <h2>Nouveautes de la version 1.0.1</h2>
         <p>Consultez les notes de version sur GitHub.</p>
       ]]></description>
       <enclosure
-        url="https://github.com/Rokania/budget-app/releases/download/v1.0.0/Budget-1.0.0.zip"
-        sparkle:edSignature="2305343"
-        length="2305343"
+        url="https://github.com/Rokania/budget-app/releases/download/v1.0.1/Budget-1.0.1.zip"
+        sparkle:edSignature="KyuHLrFdGm8ULK0ByDU1hRDmsqJ5dqOb6IC6OOpzO3/FlsZPzg+Y3pzKQKMFUe3PqAUnenPlEW21Ne22d8pjBA=="
+        length="2305345"
         type="application/octet-stream"/>
     </item>
   </channel>
