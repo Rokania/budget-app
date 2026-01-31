@@ -24,6 +24,10 @@ targets:
       - Budget
     info:
       path: Budget/Info.plist
+      properties:
+        SUFeedURL: https://rokania.github.io/budget-app/appcast.xml
+        SUPublicEDKey: PuTg8u/AD1bwLVU+L2nBMc28U7U6CZaidw0M9EaJSdo=
+        SUEnableAutomaticChecks: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.budget.app

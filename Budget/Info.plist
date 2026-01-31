@@ -18,11 +18,11 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
 	<key>SUFeedURL</key>
 	<string>https://rokania.github.io/budget-app/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>PuTg8u/AD1bwLVU+L2nBMc28U7U6CZaidw0M9EaJSdo=</string>
-	<key>SUEnableAutomaticChecks</key>
-	<true/>
 </dict>
 </plist>
